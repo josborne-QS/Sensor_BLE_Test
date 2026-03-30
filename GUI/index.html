@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 BLE Sensor Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: #16213e;
+    border-bottom: 1px solid #0f3460;
+  }
+  header h1 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #e94560;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.85rem;
+  }
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #555;
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: #00e676; }
+  #statusText { color: #aaa; }
+  #sampleRate { color: #aaa; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 12px;
+    padding: 12px 24px;
+    background: #16213e;
+  }
+  button {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+  button:active { transform: scale(0.97); }
+  #connectBtn {
+    background: #e94560;
+    color: #fff;
+  }
+  #connectBtn:hover { background: #c73550; }
+  #connectBtn:disabled {
+    background: #555;
+    cursor: not-allowed;
+  }
+  #disconnectBtn {
+    background: #333;
+    color: #ccc;
+    border: 1px solid #555;
+  }
+  #disconnectBtn:hover { background: #444; }
+  #disconnectBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  #clearBtn {
+    background: #333;
+    color: #ccc;
+    border: 1px solid #555;
+    margin-left: auto;
+  }
+  #clearBtn:hover { background: #444; }
+
+  /* Live values */
+  .values {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 16px 24px;
+  }
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 0 24px 8px;
+  }
+  .value-card {
+    background: #16213e;
+    border-radius: 8px;
+    padding: 14px 18px;
+    border: 1px solid #0f3460;
+  }
+  .value-card .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #888;
+    margin-bottom: 4px;
+  }
+  .value-card .number {
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .value-card.x .number { color: #ef5350; }
+  .value-card.y .number { color: #66bb6a; }
+  .value-card.z .number { color: #42a5f5; }
+  .value-card.sample .number { color: #aaa; font-size: 1.2rem; }
+  .value-card.stats .number { color: #ffb74d; font-size: 1.2rem; }
+  .value-card.stats .number.good { color: #66bb6a; }
+  .value-card.stats .number.warn { color: #ffb74d; }
+  .value-card.stats .number.bad { color: #ef5350; }
+
+  /* Chart */
+  .chart-container {
+    flex: 1;
+    padding: 0 24px 24px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+  }
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+  }
+  .chart-header h2 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #aaa;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+  }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+  .canvas-wrap {
+    flex: 1;
+    position: relative;
+    background: #111;
+    border-radius: 8px;
+    border: 1px solid #0f3460;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ESP32 BLE Sensor Dashboard</h1>
+  <div class="status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Disconnected</span>
+    <span id="sampleRate"></span>
+  </div>
+</header>
+
+<div class="controls">
+  <button id="connectBtn">Connect</button>
+  <button id="disconnectBtn" disabled>Disconnect</button>
+  <button id="clearBtn">Clear Chart</button>
+</div>
+
+<div class="values">
+  <div class="value-card x">
+    <div class="label">Sensor X</div>
+    <div class="number" id="valX">--</div>
+  </div>
+  <div class="value-card y">
+    <div class="label">Sensor Y</div>
+    <div class="number" id="valY">--</div>
+  </div>
+  <div class="value-card z">
+    <div class="label">Sensor Z</div>
+    <div class="number" id="valZ">--</div>
+  </div>
+</div>
+<div class="stats-row">
+  <div class="value-card sample">
+    <div class="label">Sample #</div>
+    <div class="number" id="valSample">--</div>
+  </div>
+  <div class="value-card stats">
+    <div class="label">Received</div>
+    <div class="number" id="valReceived">--</div>
+  </div>
+  <div class="value-card stats">
+    <div class="label">Dropped</div>
+    <div class="number good" id="valDropped">0</div>
+  </div>
+</div>
+
+<div class="chart-container">
+  <div class="chart-header">
+    <h2>Real-Time Plot</h2>
+    <div class="legend">
+      <span><i class="legend-dot" style="background:#ef5350"></i> X</span>
+      <span><i class="legend-dot" style="background:#66bb6a"></i> Y</span>
+      <span><i class="legend-dot" style="background:#42a5f5"></i> Z</span>
+    </div>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="chart"></canvas>
+  </div>
+</div>
+
+<script>
+// BLE UUIDs (lowercase for Web Bluetooth)
+const SERVICE_UUID        = '0000ffe0-0000-1000-8000-00805f9b34fb';
+const CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
+// State
+let device = null;
+let characteristic = null;
+let buffer = '';
+
+// Data buffers for chart (rolling window)
+const MAX_POINTS = 1000;
+const dataX = [];
+const dataY = [];
+const dataZ = [];
+
+// Sample rate tracking
+let sampleCountForRate = 0;
+let lastRateTime = performance.now();
+
+// Gap/drop tracking
+let lastSampleNum = -1;
+let totalReceived = 0;
+let totalDropped = 0;
+
+// DOM refs
+const connectBtn    = document.getElementById('connectBtn');
+const disconnectBtn = document.getElementById('disconnectBtn');
+const clearBtn      = document.getElementById('clearBtn');
+const statusDot     = document.getElementById('statusDot');
+const statusText    = document.getElementById('statusText');
+const sampleRateEl  = document.getElementById('sampleRate');
+const valSample     = document.getElementById('valSample');
+const valX          = document.getElementById('valX');
+const valY          = document.getElementById('valY');
+const valZ          = document.getElementById('valZ');
+const valReceived   = document.getElementById('valReceived');
+const valDropped    = document.getElementById('valDropped');
+const canvas        = document.getElementById('chart');
+const ctx           = canvas.getContext('2d');
+
+// ── BLE Connect ──
+connectBtn.addEventListener('click', async () => {
+  try {
+    connectBtn.disabled = true;
+    statusText.textContent = 'Scanning...';
+
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SERVICE_UUID] }],
+      optionalServices: [SERVICE_UUID]
+    });
+
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+
+    statusText.textContent = 'Connecting...';
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+    await characteristic.startNotifications();
+    characteristic.addEventListener('characteristicvaluechanged', onData);
+
+    // UI update
+    statusDot.classList.add('connected');
+    statusText.textContent = 'Connected to ' + device.name;
+    connectBtn.disabled = true;
+    disconnectBtn.disabled = false;
+    lastRateTime = performance.now();
+    sampleCountForRate = 0;
+    lastSampleNum = -1;
+    totalReceived = 0;
+    totalDropped = 0;
+    valReceived.textContent = '0';
+    valDropped.textContent = '0';
+    valDropped.className = 'number good';
+
+  } catch (err) {
+    console.error(err);
+    statusText.textContent = 'Failed: ' + err.message;
+    connectBtn.disabled = false;
+  }
+});
+
+// ── BLE Disconnect ──
+disconnectBtn.addEventListener('click', () => {
+  if (device && device.gatt.connected) {
+    device.gatt.disconnect();
+  }
+});
+
+function onDisconnected() {
+  statusDot.classList.remove('connected');
+  statusText.textContent = 'Disconnected';
+  sampleRateEl.textContent = '';
+  connectBtn.disabled = false;
+  disconnectBtn.disabled = true;
+  characteristic = null;
+}
+
+// ── Clear Chart ──
+clearBtn.addEventListener('click', () => {
+  dataX.length = 0;
+  dataY.length = 0;
+  dataZ.length = 0;
+});
+
+// ── Data Handler ──
+function onData(event) {
+  const raw = new TextDecoder().decode(event.target.value);
+  buffer += raw;
+
+  // Split on '!' delimiter — each packet starts with '!'
+  const parts = buffer.split('!');
+  // First element is whatever came before the first '!' (usually empty), keep as residual
+  buffer = parts[parts.length - 1];
+
+  for (let i = 1; i < parts.length - 1; i++) {
+    parseLine(parts[i]);
+  }
+  // If the last part ends with newline, it's complete
+  if (parts.length > 1 && buffer.endsWith('\n')) {
+    parseLine(buffer);
+    buffer = '';
+  }
+}
+
+function parseLine(line) {
+  line = line.trim();
+  if (!line) return;
+
+  const fields = line.split(',');
+  if (fields.length < 4) return;
+
+  const sample = parseInt(fields[0], 10);
+  const x = parseFloat(fields[1]);
+  const y = parseFloat(fields[2]);
+  const z = parseFloat(fields[3]);
+
+  if (isNaN(sample) || isNaN(x) || isNaN(y) || isNaN(z)) return;
+
+  // Track gaps in sample numbers
+  totalReceived++;
+  if (lastSampleNum >= 0 && sample > lastSampleNum + 1) {
+    totalDropped += (sample - lastSampleNum - 1);
+  }
+  lastSampleNum = sample;
+
+  // Update live values
+  valSample.textContent = sample;
+  valX.textContent = x.toFixed(2);
+  valY.textContent = y.toFixed(2);
+  valZ.textContent = z.toFixed(2);
+  valReceived.textContent = totalReceived;
+  valDropped.textContent = totalDropped;
+  const dropPct = totalReceived > 0 ? totalDropped / (totalReceived + totalDropped) * 100 : 0;
+  valDropped.className = 'number ' + (dropPct < 1 ? 'good' : dropPct < 5 ? 'warn' : 'bad');
+
+  // Push to chart buffers
+  dataX.push(x);
+  dataY.push(y);
+  dataZ.push(z);
+  if (dataX.length > MAX_POINTS) {
+    dataX.shift();
+    dataY.shift();
+    dataZ.shift();
+  }
+
+  // Sample rate calculation (update every second)
+  sampleCountForRate++;
+  const now = performance.now();
+  const elapsed = now - lastRateTime;
+  if (elapsed >= 1000) {
+    const rate = (sampleCountForRate / elapsed * 1000).toFixed(0);
+    sampleRateEl.textContent = rate + ' Hz';
+    sampleCountForRate = 0;
+    lastRateTime = now;
+  }
+}
+
+// ── Chart Rendering ──
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function drawChart() {
+  requestAnimationFrame(drawChart);
+
+  const w = canvas.width / devicePixelRatio;
+  const h = canvas.height / devicePixelRatio;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const len = dataX.length;
+  if (len < 2) {
+    ctx.fillStyle = '#555';
+    ctx.font = '14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Waiting for data...', w / 2, h / 2);
+    return;
+  }
+
+  // Auto-scale Y axis
+  let yMin = Infinity, yMax = -Infinity;
+  for (let i = 0; i < len; i++) {
+    const vals = [dataX[i], dataY[i], dataZ[i]];
+    for (const v of vals) {
+      if (v < yMin) yMin = v;
+      if (v > yMax) yMax = v;
+    }
+  }
+  const yPad = (yMax - yMin) * 0.1 || 10;
+  yMin -= yPad;
+  yMax += yPad;
+
+  // Grid lines
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 1;
+  const gridLines = 5;
+  for (let i = 0; i <= gridLines; i++) {
+    const gy = (h / gridLines) * i;
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    ctx.lineTo(w, gy);
+    ctx.stroke();
+
+    // Y labels
+    const val = yMax - (yMax - yMin) * (i / gridLines);
+    ctx.fillStyle = '#555';
+    ctx.font = '11px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText(val.toFixed(1), 4, gy - 3);
+  }
+
+  // Zero line
+  if (yMin < 0 && yMax > 0) {
+    const zeroY = h * (yMax / (yMax - yMin));
+    ctx.strokeStyle = '#444';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(0, zeroY);
+    ctx.lineTo(w, zeroY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw traces
+  const traces = [
+    { data: dataX, color: '#ef5350' },
+    { data: dataY, color: '#66bb6a' },
+    { data: dataZ, color: '#42a5f5' },
+  ];
+
+  for (const trace of traces) {
+    ctx.strokeStyle = trace.color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < len; i++) {
+      const px = (i / (MAX_POINTS - 1)) * w;
+      const py = h - ((trace.data[i] - yMin) / (yMax - yMin)) * h;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+}
+
+drawChart();
+</script>
+</body>
+</html>

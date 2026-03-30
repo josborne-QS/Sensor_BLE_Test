@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ESP32 BLE Sensor Dashboard</title>
+<title>BLE Terminal &amp; Sensor Dashboard</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -20,19 +20,17 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 24px;
+    padding: 14px 24px;
     background: #16213e;
     border-bottom: 1px solid #0f3460;
+    flex-wrap: wrap;
+    gap: 8px;
   }
-  header h1 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: #e94560;
-  }
+  header h1 { font-size: 1.1rem; font-weight: 600; color: #e94560; }
   .status {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     font-size: 0.85rem;
   }
   .status-dot {
@@ -48,46 +46,149 @@
   /* Controls */
   .controls {
     display: flex;
-    gap: 12px;
-    padding: 12px 24px;
+    gap: 10px;
+    padding: 10px 24px;
     background: #16213e;
+    flex-wrap: wrap;
+    align-items: center;
   }
   button {
-    padding: 8px 20px;
+    padding: 7px 16px;
     border: none;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
   }
   button:active { transform: scale(0.97); }
-  #connectBtn {
-    background: #e94560;
-    color: #fff;
-  }
-  #connectBtn:hover { background: #c73550; }
-  #connectBtn:disabled {
-    background: #555;
-    cursor: not-allowed;
-  }
-  #disconnectBtn {
-    background: #333;
-    color: #ccc;
+  .btn-primary { background: #e94560; color: #fff; }
+  .btn-primary:hover { background: #c73550; }
+  .btn-primary:disabled { background: #555; cursor: not-allowed; }
+  .btn-secondary {
+    background: #333; color: #ccc;
     border: 1px solid #555;
   }
-  #disconnectBtn:hover { background: #444; }
-  #disconnectBtn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  #clearBtn {
-    background: #333;
-    color: #ccc;
-    border: 1px solid #555;
+  .btn-secondary:hover { background: #444; }
+  .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Service UUID input */
+  .uuid-input {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-left: auto;
+    font-size: 0.8rem;
   }
-  #clearBtn:hover { background: #444; }
+  .uuid-input label { color: #888; white-space: nowrap; }
+  .uuid-input input {
+    background: #111;
+    border: 1px solid #0f3460;
+    color: #e0e0e0;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 0.8rem;
+    width: 320px;
+  }
+
+  /* Characteristic selector */
+  .char-bar {
+    display: none;
+    gap: 10px;
+    padding: 8px 24px;
+    background: #12203a;
+    border-bottom: 1px solid #0f3460;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+  }
+  .char-bar.visible { display: flex; }
+  .char-bar label { color: #888; }
+  .char-bar select {
+    background: #111;
+    border: 1px solid #0f3460;
+    color: #e0e0e0;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 0.8rem;
+    max-width: 500px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    padding: 0 24px;
+    gap: 0;
+    background: #1a1a2e;
+  }
+  .tab {
+    padding: 10px 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #888;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .tab:hover { color: #ccc; }
+  .tab.active { color: #e94560; border-bottom-color: #e94560; }
+
+  /* Tab content */
+  .tab-content { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+  .tab-content.active { display: flex; }
+
+  /* Terminal */
+  .terminal-container {
+    flex: 1;
+    padding: 0 24px 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .terminal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+  }
+  .terminal-header h2 { font-size: 0.9rem; font-weight: 600; color: #aaa; }
+  .terminal-stats { font-size: 0.8rem; color: #666; }
+  #terminal {
+    flex: 1;
+    background: #0a0a0a;
+    border: 1px solid #0f3460;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    overflow-y: auto;
+    overflow-x: hidden;
+    color: #00e676;
+    min-height: 200px;
+    word-break: break-all;
+  }
+  #terminal .timestamp { color: #555; }
+  #terminal .data { color: #00e676; }
+  #terminal .info { color: #42a5f5; }
+  #terminal .error { color: #ef5350; }
+  .terminal-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .terminal-controls label {
+    font-size: 0.8rem;
+    color: #888;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .terminal-controls input[type="checkbox"] { accent-color: #e94560; }
 
   /* Live values */
   .values {
@@ -105,26 +206,26 @@
   .value-card {
     background: #16213e;
     border-radius: 8px;
-    padding: 14px 18px;
+    padding: 12px 16px;
     border: 1px solid #0f3460;
   }
   .value-card .label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: #888;
     margin-bottom: 4px;
   }
   .value-card .number {
-    font-size: 1.6rem;
+    font-size: 1.4rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
   .value-card.x .number { color: #ef5350; }
   .value-card.y .number { color: #66bb6a; }
   .value-card.z .number { color: #42a5f5; }
-  .value-card.sample .number { color: #aaa; font-size: 1.2rem; }
-  .value-card.stats .number { color: #ffb74d; font-size: 1.2rem; }
+  .value-card.sample .number { color: #aaa; font-size: 1.1rem; }
+  .value-card.stats .number { color: #ffb74d; font-size: 1.1rem; }
   .value-card.stats .number.good { color: #66bb6a; }
   .value-card.stats .number.warn { color: #ffb74d; }
   .value-card.stats .number.bad { color: #ef5350; }
@@ -132,8 +233,8 @@
   /* Chart */
   .chart-container {
     flex: 1;
-    padding: 0 24px 24px;
-    min-height: 300px;
+    padding: 0 24px 16px;
+    min-height: 250px;
     display: flex;
     flex-direction: column;
   }
@@ -143,16 +244,8 @@
     justify-content: space-between;
     padding: 8px 0;
   }
-  .chart-header h2 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #aaa;
-  }
-  .legend {
-    display: flex;
-    gap: 16px;
-    font-size: 0.8rem;
-  }
+  .chart-header h2 { font-size: 0.9rem; font-weight: 600; color: #aaa; }
+  .legend { display: flex; gap: 16px; font-size: 0.8rem; }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .legend-dot {
     width: 10px; height: 10px;
@@ -167,17 +260,13 @@
     border: 1px solid #0f3460;
     overflow: hidden;
   }
-  canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
+  canvas { display: block; width: 100%; height: 100%; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>ESP32 BLE Sensor Dashboard</h1>
+  <h1>BLE Terminal &amp; Sensor Dashboard</h1>
   <div class="status">
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Disconnected</span>
@@ -186,119 +275,199 @@
 </header>
 
 <div class="controls">
-  <button id="connectBtn">Connect</button>
-  <button id="disconnectBtn" disabled>Disconnect</button>
-  <button id="clearBtn">Clear Chart</button>
-</div>
-
-<div class="values">
-  <div class="value-card x">
-    <div class="label">Sensor X</div>
-    <div class="number" id="valX">--</div>
-  </div>
-  <div class="value-card y">
-    <div class="label">Sensor Y</div>
-    <div class="number" id="valY">--</div>
-  </div>
-  <div class="value-card z">
-    <div class="label">Sensor Z</div>
-    <div class="number" id="valZ">--</div>
-  </div>
-</div>
-<div class="stats-row">
-  <div class="value-card sample">
-    <div class="label">Sample #</div>
-    <div class="number" id="valSample">--</div>
-  </div>
-  <div class="value-card stats">
-    <div class="label">Received</div>
-    <div class="number" id="valReceived">--</div>
-  </div>
-  <div class="value-card stats">
-    <div class="label">Dropped</div>
-    <div class="number good" id="valDropped">0</div>
+  <button id="connectBtn" class="btn-primary">Scan All Devices</button>
+  <button id="disconnectBtn" class="btn-secondary" disabled>Disconnect</button>
+  <div class="uuid-input">
+    <label for="serviceUUID">Service UUID (optional):</label>
+    <input type="text" id="serviceUUID" placeholder="e.g. 0000ffe0-0000-1000-8000-00805f9b34fb">
   </div>
 </div>
 
-<div class="chart-container">
-  <div class="chart-header">
-    <h2>Real-Time Plot</h2>
-    <div class="legend">
-      <span><i class="legend-dot" style="background:#ef5350"></i> X</span>
-      <span><i class="legend-dot" style="background:#66bb6a"></i> Y</span>
-      <span><i class="legend-dot" style="background:#42a5f5"></i> Z</span>
+<div class="char-bar" id="charBar">
+  <label for="charSelect">Characteristic:</label>
+  <select id="charSelect"></select>
+  <button id="subscribeBtn" class="btn-primary">Subscribe</button>
+  <button id="unsubscribeBtn" class="btn-secondary" disabled>Unsubscribe</button>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" data-tab="terminal">Terminal</div>
+  <div class="tab" data-tab="chart">Sensor Chart</div>
+</div>
+
+<!-- Terminal Tab -->
+<div class="tab-content active" id="tab-terminal">
+  <div class="terminal-container">
+    <div class="terminal-header">
+      <h2>Raw Data</h2>
+      <div class="terminal-controls">
+        <label><input type="checkbox" id="autoScroll" checked> Auto-scroll</label>
+        <label><input type="checkbox" id="showTimestamps" checked> Timestamps</label>
+        <button id="clearTermBtn" class="btn-secondary">Clear</button>
+      </div>
+    </div>
+    <div id="terminal"></div>
+    <div class="terminal-stats">
+      <span id="termStats"></span>
     </div>
   </div>
-  <div class="canvas-wrap">
-    <canvas id="chart"></canvas>
+</div>
+
+<!-- Chart Tab -->
+<div class="tab-content" id="tab-chart">
+  <div class="values">
+    <div class="value-card x">
+      <div class="label">Sensor X</div>
+      <div class="number" id="valX">--</div>
+    </div>
+    <div class="value-card y">
+      <div class="label">Sensor Y</div>
+      <div class="number" id="valY">--</div>
+    </div>
+    <div class="value-card z">
+      <div class="label">Sensor Z</div>
+      <div class="number" id="valZ">--</div>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="value-card sample">
+      <div class="label">Sample #</div>
+      <div class="number" id="valSample">--</div>
+    </div>
+    <div class="value-card stats">
+      <div class="label">Received</div>
+      <div class="number" id="valReceived">--</div>
+    </div>
+    <div class="value-card stats">
+      <div class="label">Dropped</div>
+      <div class="number good" id="valDropped">0</div>
+    </div>
+  </div>
+  <div class="chart-container">
+    <div class="chart-header">
+      <h2>Real-Time Plot</h2>
+      <div class="legend">
+        <span><i class="legend-dot" style="background:#ef5350"></i> X</span>
+        <span><i class="legend-dot" style="background:#66bb6a"></i> Y</span>
+        <span><i class="legend-dot" style="background:#42a5f5"></i> Z</span>
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="chart"></canvas>
+    </div>
   </div>
 </div>
 
 <script>
-// BLE UUIDs (lowercase for Web Bluetooth)
-const SERVICE_UUID        = '0000ffe0-0000-1000-8000-00805f9b34fb';
-const CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
-
-// State
+// ── State ──
 let device = null;
-let characteristic = null;
+let server = null;
+let activeCharacteristic = null;
+let allCharacteristics = [];
 let buffer = '';
 
-// Data buffers for chart (rolling window)
+// Chart data
 const MAX_POINTS = 1000;
-const dataX = [];
-const dataY = [];
-const dataZ = [];
+const dataX = [], dataY = [], dataZ = [];
 
-// Sample rate tracking
+// Stats
 let sampleCountForRate = 0;
 let lastRateTime = performance.now();
-
-// Gap/drop tracking
 let lastSampleNum = -1;
 let totalReceived = 0;
 let totalDropped = 0;
+let totalBytes = 0;
 
-// DOM refs
-const connectBtn    = document.getElementById('connectBtn');
-const disconnectBtn = document.getElementById('disconnectBtn');
-const clearBtn      = document.getElementById('clearBtn');
-const statusDot     = document.getElementById('statusDot');
-const statusText    = document.getElementById('statusText');
-const sampleRateEl  = document.getElementById('sampleRate');
-const valSample     = document.getElementById('valSample');
-const valX          = document.getElementById('valX');
-const valY          = document.getElementById('valY');
-const valZ          = document.getElementById('valZ');
-const valReceived   = document.getElementById('valReceived');
-const valDropped    = document.getElementById('valDropped');
-const canvas        = document.getElementById('chart');
-const ctx           = canvas.getContext('2d');
+// Terminal
+const MAX_TERMINAL_LINES = 500;
+let termLineCount = 0;
 
-// ── BLE Connect ──
+// ── DOM Refs ──
+const connectBtn     = document.getElementById('connectBtn');
+const disconnectBtn  = document.getElementById('disconnectBtn');
+const statusDot      = document.getElementById('statusDot');
+const statusText     = document.getElementById('statusText');
+const sampleRateEl   = document.getElementById('sampleRate');
+const serviceInput   = document.getElementById('serviceUUID');
+const charBar        = document.getElementById('charBar');
+const charSelect     = document.getElementById('charSelect');
+const subscribeBtn   = document.getElementById('subscribeBtn');
+const unsubscribeBtn = document.getElementById('unsubscribeBtn');
+const terminalEl     = document.getElementById('terminal');
+const autoScrollCb   = document.getElementById('autoScroll');
+const showTimeCb     = document.getElementById('showTimestamps');
+const clearTermBtn   = document.getElementById('clearTermBtn');
+const termStats      = document.getElementById('termStats');
+const valSample      = document.getElementById('valSample');
+const valX           = document.getElementById('valX');
+const valY           = document.getElementById('valY');
+const valZ           = document.getElementById('valZ');
+const valReceived    = document.getElementById('valReceived');
+const valDropped     = document.getElementById('valDropped');
+const canvas         = document.getElementById('chart');
+const ctx            = canvas.getContext('2d');
+
+// ── Tabs ──
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'chart') resizeCanvas();
+  });
+});
+
+// ── BLE Connect (scan all devices) ──
 connectBtn.addEventListener('click', async () => {
   try {
     connectBtn.disabled = true;
     statusText.textContent = 'Scanning...';
 
-    device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE_UUID] }],
-      optionalServices: [SERVICE_UUID]
-    });
+    // Build request options
+    const uuidStr = serviceInput.value.trim().toLowerCase();
+    let requestOpts;
 
+    if (uuidStr) {
+      // User specified a UUID — filter by it
+      requestOpts = {
+        filters: [{ services: [uuidStr] }],
+        optionalServices: [uuidStr]
+      };
+    } else {
+      // Scan all devices
+      requestOpts = {
+        acceptAllDevices: true,
+        optionalServices: [
+          '0000ffe0-0000-1000-8000-00805f9b34fb',
+          '0000ffe1-0000-1000-8000-00805f9b34fb',
+          '0000fff0-0000-1000-8000-00805f9b34fb',
+          '0000180d-0000-1000-8000-00805f9b34fb', // Heart Rate
+          '0000180a-0000-1000-8000-00805f9b34fb', // Device Info
+          '0000180f-0000-1000-8000-00805f9b34fb', // Battery
+          '00001800-0000-1000-8000-00805f9b34fb', // Generic Access
+          '00001801-0000-1000-8000-00805f9b34fb', // Generic Attribute
+          '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART
+        ]
+      };
+    }
+
+    device = await navigator.bluetooth.requestDevice(requestOpts);
     device.addEventListener('gattserverdisconnected', onDisconnected);
 
-    statusText.textContent = 'Connecting...';
-    const server = await device.gatt.connect();
-    const service = await server.getPrimaryService(SERVICE_UUID);
-    characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+    statusText.textContent = 'Connecting to ' + (device.name || 'device') + '...';
+    server = await device.gatt.connect();
 
-    await characteristic.startNotifications();
-    characteristic.addEventListener('characteristicvaluechanged', onData);
+    termLog('info', 'Connected to ' + (device.name || 'Unknown Device'));
+
+    // Discover all accessible services and characteristics
+    statusText.textContent = 'Discovering services...';
+    await discoverCharacteristics();
 
     // UI update
     statusDot.classList.add('connected');
-    statusText.textContent = 'Connected to ' + device.name;
+    statusText.textContent = 'Connected to ' + (device.name || 'Unknown Device');
     connectBtn.disabled = true;
     disconnectBtn.disabled = false;
     lastRateTime = performance.now();
@@ -306,22 +475,133 @@ connectBtn.addEventListener('click', async () => {
     lastSampleNum = -1;
     totalReceived = 0;
     totalDropped = 0;
-    valReceived.textContent = '0';
-    valDropped.textContent = '0';
-    valDropped.className = 'number good';
+    totalBytes = 0;
 
   } catch (err) {
     console.error(err);
-    statusText.textContent = 'Failed: ' + err.message;
+    statusText.textContent = err.message.includes('cancel') ? 'Scan cancelled' : 'Failed: ' + err.message;
     connectBtn.disabled = false;
   }
 });
 
-// ── BLE Disconnect ──
-disconnectBtn.addEventListener('click', () => {
-  if (device && device.gatt.connected) {
-    device.gatt.disconnect();
+// ── Discover Services & Characteristics ──
+async function discoverCharacteristics() {
+  allCharacteristics = [];
+  charSelect.innerHTML = '';
+
+  let services;
+  try {
+    services = await server.getPrimaryServices();
+  } catch (e) {
+    termLog('error', 'Could not discover services: ' + e.message);
+    return;
   }
+
+  termLog('info', 'Found ' + services.length + ' service(s)');
+
+  for (const svc of services) {
+    const svcShort = shortenUUID(svc.uuid);
+    termLog('info', '  Service: ' + svcShort);
+
+    let chars;
+    try {
+      chars = await svc.getCharacteristics();
+    } catch (e) {
+      termLog('error', '    Could not read characteristics: ' + e.message);
+      continue;
+    }
+
+    for (const char of chars) {
+      const props = [];
+      if (char.properties.read) props.push('R');
+      if (char.properties.write) props.push('W');
+      if (char.properties.writeWithoutResponse) props.push('Wn');
+      if (char.properties.notify) props.push('N');
+      if (char.properties.indicate) props.push('I');
+
+      const label = shortenUUID(char.uuid) + ' [' + props.join(',') + ']';
+      termLog('info', '    Char: ' + label);
+
+      allCharacteristics.push(char);
+      const opt = document.createElement('option');
+      opt.value = allCharacteristics.length - 1;
+      opt.textContent = svcShort + ' / ' + label;
+      charSelect.appendChild(opt);
+    }
+  }
+
+  if (allCharacteristics.length > 0) {
+    charBar.classList.add('visible');
+
+    // Auto-subscribe to first notify-capable characteristic
+    const notifyIdx = allCharacteristics.findIndex(c => c.properties.notify || c.properties.indicate);
+    if (notifyIdx >= 0) {
+      charSelect.value = notifyIdx;
+      subscribeBtn.click();
+    }
+  } else {
+    termLog('error', 'No characteristics found. Try specifying a Service UUID.');
+  }
+}
+
+function shortenUUID(uuid) {
+  // Show short form for standard 128-bit BLE UUIDs
+  const m = uuid.match(/^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/);
+  return m ? '0x' + m[1].toUpperCase() : uuid.substring(0, 23) + '...';
+}
+
+// ── Subscribe / Unsubscribe ──
+subscribeBtn.addEventListener('click', async () => {
+  const idx = parseInt(charSelect.value);
+  const char = allCharacteristics[idx];
+  if (!char) return;
+
+  // Unsubscribe from previous
+  if (activeCharacteristic) {
+    try {
+      await activeCharacteristic.stopNotifications();
+      activeCharacteristic.removeEventListener('characteristicvaluechanged', onData);
+    } catch (e) { /* ignore */ }
+  }
+
+  try {
+    if (char.properties.notify || char.properties.indicate) {
+      await char.startNotifications();
+      char.addEventListener('characteristicvaluechanged', onData);
+      activeCharacteristic = char;
+      buffer = '';
+      termLog('info', 'Subscribed to notifications on ' + shortenUUID(char.uuid));
+      subscribeBtn.disabled = true;
+      unsubscribeBtn.disabled = false;
+    } else {
+      termLog('error', 'This characteristic does not support notifications.');
+    }
+  } catch (e) {
+    termLog('error', 'Subscribe failed: ' + e.message);
+  }
+});
+
+unsubscribeBtn.addEventListener('click', async () => {
+  if (activeCharacteristic) {
+    try {
+      await activeCharacteristic.stopNotifications();
+      activeCharacteristic.removeEventListener('characteristicvaluechanged', onData);
+      termLog('info', 'Unsubscribed from ' + shortenUUID(activeCharacteristic.uuid));
+    } catch (e) { /* ignore */ }
+    activeCharacteristic = null;
+    subscribeBtn.disabled = false;
+    unsubscribeBtn.disabled = true;
+  }
+});
+
+charSelect.addEventListener('change', () => {
+  subscribeBtn.disabled = false;
+  unsubscribeBtn.disabled = true;
+});
+
+// ── Disconnect ──
+disconnectBtn.addEventListener('click', () => {
+  if (device && device.gatt.connected) device.gatt.disconnect();
 });
 
 function onDisconnected() {
@@ -330,37 +610,72 @@ function onDisconnected() {
   sampleRateEl.textContent = '';
   connectBtn.disabled = false;
   disconnectBtn.disabled = true;
-  characteristic = null;
+  subscribeBtn.disabled = false;
+  unsubscribeBtn.disabled = true;
+  charBar.classList.remove('visible');
+  activeCharacteristic = null;
+  server = null;
+  termLog('info', 'Device disconnected');
 }
 
-// ── Clear Chart ──
-clearBtn.addEventListener('click', () => {
-  dataX.length = 0;
-  dataY.length = 0;
-  dataZ.length = 0;
+// ── Terminal ──
+function termLog(cls, text) {
+  const line = document.createElement('div');
+  if (showTimeCb.checked) {
+    const ts = document.createElement('span');
+    ts.className = 'timestamp';
+    ts.textContent = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 }) + '  ';
+    line.appendChild(ts);
+  }
+  const msg = document.createElement('span');
+  msg.className = cls;
+  msg.textContent = text;
+  line.appendChild(msg);
+  terminalEl.appendChild(line);
+  termLineCount++;
+
+  // Trim old lines
+  while (termLineCount > MAX_TERMINAL_LINES) {
+    terminalEl.removeChild(terminalEl.firstChild);
+    termLineCount--;
+  }
+
+  if (autoScrollCb.checked) {
+    terminalEl.scrollTop = terminalEl.scrollHeight;
+  }
+}
+
+clearTermBtn.addEventListener('click', () => {
+  terminalEl.innerHTML = '';
+  termLineCount = 0;
 });
 
 // ── Data Handler ──
 function onData(event) {
   const raw = new TextDecoder().decode(event.target.value);
-  buffer += raw;
+  totalBytes += event.target.value.byteLength;
 
-  // Split on '!' delimiter — each packet starts with '!'
+  // Log raw data to terminal
+  termLog('data', raw.replace(/\n$/, ''));
+
+  // Update terminal stats
+  termStats.textContent = 'Bytes received: ' + totalBytes.toLocaleString();
+
+  // Try to parse sensor data (lines starting with !)
+  buffer += raw;
   const parts = buffer.split('!');
-  // First element is whatever came before the first '!' (usually empty), keep as residual
   buffer = parts[parts.length - 1];
 
   for (let i = 1; i < parts.length - 1; i++) {
-    parseLine(parts[i]);
+    parseSensorLine(parts[i]);
   }
-  // If the last part ends with newline, it's complete
   if (parts.length > 1 && buffer.endsWith('\n')) {
-    parseLine(buffer);
+    parseSensorLine(buffer);
     buffer = '';
   }
 }
 
-function parseLine(line) {
+function parseSensorLine(line) {
   line = line.trim();
   if (!line) return;
 
@@ -371,17 +686,16 @@ function parseLine(line) {
   const x = parseFloat(fields[1]);
   const y = parseFloat(fields[2]);
   const z = parseFloat(fields[3]);
-
   if (isNaN(sample) || isNaN(x) || isNaN(y) || isNaN(z)) return;
 
-  // Track gaps in sample numbers
+  // Gap tracking
   totalReceived++;
   if (lastSampleNum >= 0 && sample > lastSampleNum + 1) {
     totalDropped += (sample - lastSampleNum - 1);
   }
   lastSampleNum = sample;
 
-  // Update live values
+  // Update value cards
   valSample.textContent = sample;
   valX.textContent = x.toFixed(2);
   valY.textContent = y.toFixed(2);
@@ -391,23 +705,18 @@ function parseLine(line) {
   const dropPct = totalReceived > 0 ? totalDropped / (totalReceived + totalDropped) * 100 : 0;
   valDropped.className = 'number ' + (dropPct < 1 ? 'good' : dropPct < 5 ? 'warn' : 'bad');
 
-  // Push to chart buffers
+  // Chart data
   dataX.push(x);
   dataY.push(y);
   dataZ.push(z);
-  if (dataX.length > MAX_POINTS) {
-    dataX.shift();
-    dataY.shift();
-    dataZ.shift();
-  }
+  if (dataX.length > MAX_POINTS) { dataX.shift(); dataY.shift(); dataZ.shift(); }
 
-  // Sample rate calculation (update every second)
+  // Sample rate
   sampleCountForRate++;
   const now = performance.now();
   const elapsed = now - lastRateTime;
   if (elapsed >= 1000) {
-    const rate = (sampleCountForRate / elapsed * 1000).toFixed(0);
-    sampleRateEl.textContent = rate + ' Hz';
+    sampleRateEl.textContent = (sampleCountForRate / elapsed * 1000).toFixed(0) + ' Hz';
     sampleCountForRate = 0;
     lastRateTime = now;
   }
@@ -416,6 +725,7 @@ function parseLine(line) {
 // ── Chart Rendering ──
 function resizeCanvas() {
   const rect = canvas.parentElement.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
   canvas.width = rect.width * devicePixelRatio;
   canvas.height = rect.height * devicePixelRatio;
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
@@ -428,6 +738,7 @@ function drawChart() {
 
   const w = canvas.width / devicePixelRatio;
   const h = canvas.height / devicePixelRatio;
+  if (w === 0 || h === 0) return;
 
   ctx.clearRect(0, 0, w, h);
 
@@ -436,15 +747,14 @@ function drawChart() {
     ctx.fillStyle = '#555';
     ctx.font = '14px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText('Waiting for data...', w / 2, h / 2);
+    ctx.fillText('Waiting for sensor data (!sample,X,Y,Z)...', w / 2, h / 2);
     return;
   }
 
-  // Auto-scale Y axis
+  // Auto-scale Y
   let yMin = Infinity, yMax = -Infinity;
   for (let i = 0; i < len; i++) {
-    const vals = [dataX[i], dataY[i], dataZ[i]];
-    for (const v of vals) {
+    for (const v of [dataX[i], dataY[i], dataZ[i]]) {
       if (v < yMin) yMin = v;
       if (v > yMax) yMax = v;
     }
@@ -453,19 +763,13 @@ function drawChart() {
   yMin -= yPad;
   yMax += yPad;
 
-  // Grid lines
+  // Grid
   ctx.strokeStyle = '#222';
   ctx.lineWidth = 1;
-  const gridLines = 5;
-  for (let i = 0; i <= gridLines; i++) {
-    const gy = (h / gridLines) * i;
-    ctx.beginPath();
-    ctx.moveTo(0, gy);
-    ctx.lineTo(w, gy);
-    ctx.stroke();
-
-    // Y labels
-    const val = yMax - (yMax - yMin) * (i / gridLines);
+  for (let i = 0; i <= 5; i++) {
+    const gy = (h / 5) * i;
+    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+    const val = yMax - (yMax - yMin) * (i / 5);
     ctx.fillStyle = '#555';
     ctx.font = '11px system-ui';
     ctx.textAlign = 'left';
@@ -477,34 +781,27 @@ function drawChart() {
     const zeroY = h * (yMax / (yMax - yMin));
     ctx.strokeStyle = '#444';
     ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(0, zeroY);
-    ctx.lineTo(w, zeroY);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY); ctx.stroke();
     ctx.setLineDash([]);
   }
 
-  // Draw traces
-  const traces = [
+  // Traces
+  for (const { data, color } of [
     { data: dataX, color: '#ef5350' },
     { data: dataY, color: '#66bb6a' },
     { data: dataZ, color: '#42a5f5' },
-  ];
-
-  for (const trace of traces) {
-    ctx.strokeStyle = trace.color;
+  ]) {
+    ctx.strokeStyle = color;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     for (let i = 0; i < len; i++) {
       const px = (i / (MAX_POINTS - 1)) * w;
-      const py = h - ((trace.data[i] - yMin) / (yMax - yMin)) * h;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+      const py = h - ((data[i] - yMin) / (yMax - yMin)) * h;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
     }
     ctx.stroke();
   }
 }
-
 drawChart();
 </script>
 </body>
